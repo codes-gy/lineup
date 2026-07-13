@@ -37,8 +37,8 @@
                 updateUI(data);
                 if (data.status === 'ALLOWED') {
                     clearInterval(timer);
-                    alert("🎉 입장 순서가 되었습니다! 티켓팅 페이지로 이동합니다.");
-                    window.location.href = "/ticket.html";
+                    alert("입장 순서가 되었습니다! 티켓팅 페이지로 이동합니다.");
+                    window.location.href = `/ticket.html?token=${data.token}`;
                 }
             });
     }
