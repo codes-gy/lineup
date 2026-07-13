@@ -9,4 +9,5 @@ public class QueueResponse {
     private String userId;
     private Long rank;
     private String status;
+    private String token;
 }

@@ -30,4 +30,9 @@ public class QueueController {
     public Mono<Long> leave(@RequestParam String userId) {
         return queueService.leaveQueue(userId);
     }
+
+    @GetMapping("/test-error")
+    public Mono<Void> testError() {
+        return Mono.error(new RuntimeException("에러 핸들러 테스트"));
+    }
 }
