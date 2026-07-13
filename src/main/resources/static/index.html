@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>티켓팅 접속 대기열</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; }
+        .box { border: 2px solid #333; display: inline-block; padding: 20px 40px; border-radius: 10px; }
+        .count { font-size: 48px; color: #e63946; font-weight: bold; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <h2>티켓팅 대기 중</h2>
+    <p id="status-text">접속 대기표를 발급받는 중입니다...</p>
+    <div class="count" id="rank-num">-</div>
+    <button onclick="leave()" style="margin-top:20px;">대기 취소</button>
+</div>
+
+<script>
+    const userId = "user_" + Math.floor(Math.random() * 10000);
+    let timer = null;
+
+    // 1. 진입 시 바로 등록
+    fetch(`/api/register?userId=${userId}`, { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            updateUI(data);
+            // 1초마다 순번 조회 (Polling)
+            timer = setInterval(checkStatus, 1000);
+        });
+
+    function checkStatus() {
+        fetch(`/api/status?userId=${userId}`)
+            .then(res => res.json())
+            .then(data => {
+                updateUI(data);
+                if (data.status === 'ALLOWED') {
+                    clearInterval(timer);
+                    alert("🎉 입장 순서가 되었습니다! 티켓팅 페이지로 이동합니다.");
+                    window.location.href = "/ticket.html";
+                }
+            });
+    }
+
+    function updateUI(data) {
+        if (!data) return;
+
+        if (data.status === 'ALLOWED') {
+            document.getElementById('status-text').innerText = "입장 가능!";
+            document.getElementById('rank-num').innerText = "0 명";
+        } else {
+            const safeRank = Math.max(0, data.rank ?? 0);
+            document.getElementById('status-text').innerText = "내 앞의 대기 인원";
+            document.getElementById('rank-num').innerText = `${safeRank} 명`;
+        }
+    }
+
+    function leave() {
+        fetch(`/api/leave?userId=${userId}`, { method: 'POST' })
+            .then(() => {
+                clearInterval(timer);
+                alert("대기가 취소되었습니다.");
+                location.reload();
+            });
+    }
+</script>
+</body>
+</html>

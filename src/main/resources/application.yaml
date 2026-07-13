@@ -1,0 +1,14 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: wating-system
+  data:
+    redis:
+      host: "divine-pegasus-70696.upstash.io"
+      port: 6379
+      password: gQAAAAAAARQoAAIgcDE4Mzg2MWE3NjUwMjA0OTI5ODZkNjU1YTM2ZTdhYmUxNg
+      ssl:
+        enabled: true # Upstash는 SSL(TLS) 연결이 필수입니다!
+
