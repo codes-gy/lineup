@@ -7,7 +7,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -31,13 +33,14 @@ public class QueueService {
         // 이미 승인(입장)된 유저인지 확인
         return redisTemplate.opsForSet().isMember(ALLOW_KEY, userId)
                 .flatMap(isAllowed -> {
-                    if (Boolean.TRUE.equals(isAllowed)) {
-                        return Mono.just(new QueueResponse(userId, 0L, "ALLOWED"));
+                    if (isAllowed) {
+                        return generateToken(userId)
+                                .map(token -> new QueueResponse(userId, 0L, "ALLOWED", token));
                     }
                     // 대기열 순번 조회 (0부터 시작)
                     return redisTemplate.opsForZSet().rank(WAIT_KEY, userId)
-                            .map(rank -> new QueueResponse(userId, rank, "WAITING"))
-                            .defaultIfEmpty(new QueueResponse(userId, -1L, "NOT_FOUND"));
+                            .map(rank -> new QueueResponse(userId, rank, "WAITING", null))
+                            .defaultIfEmpty(new QueueResponse(userId, -1L, "NOT_FOUND", null));
                 });
     }
 
@@ -55,5 +58,13 @@ public class QueueService {
                     return redisTemplate.opsForSet().add(ALLOW_KEY, userId);
                 })
                 .subscribe();
+    }
+
+    // 승인 처리 시 토큰 생성 및 저장
+    public Mono<String> generateToken(String userId) {
+        String token = UUID.randomUUID().toString();
+        return redisTemplate.opsForValue()
+                .set("token:" + token, userId, Duration.ofMinutes(5))
+                .thenReturn(token);
     }
 }

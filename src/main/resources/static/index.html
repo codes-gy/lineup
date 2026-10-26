@@ -2,30 +2,78 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>티켓팅 접속 대기열</title>
-    <style>
-        body { font-family: sans-serif; text-align: center; padding-top: 50px; }
-        .box { border: 2px solid #333; display: inline-block; padding: 20px 40px; border-radius: 10px; }
-        .count { font-size: 48px; color: #e63946; font-weight: bold; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>LineUp · 접속 대기</title>
+    <link rel="stylesheet" href="/css/lineup.css">
 </head>
 <body>
-<div class="box">
-    <h2>티켓팅 대기 중</h2>
-    <p id="status-text">접속 대기표를 발급받는 중입니다...</p>
-    <div class="count" id="rank-num">-</div>
-    <button onclick="leave()" style="margin-top:20px;">대기 취소</button>
-</div>
+<div class="brand"><span class="brand-mark">L</span>LineUp</div>
+
+<main class="card">
+    <div class="event">
+        <p class="event-label">티켓 오픈</p>
+        <h1 class="event-title">콘서트 예매</h1>
+    </div>
+
+    <!-- 대기 중 -->
+    <section id="waiting">
+        <span class="pill is-live" id="status-pill">대기표 발급 중</span>
+        <p class="caption">내 앞의 대기 인원</p>
+        <p class="big-number"><span id="rank-num">-</span><small>명</small></p>
+
+        <div class="progress" role="progressbar" aria-label="대기 진행률" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+
+        <dl class="meta">
+            <div>
+                <dt>예상 대기 시간</dt>
+                <dd id="eta">-</dd>
+            </div>
+            <div>
+                <dt>입장 속도</dt>
+                <dd>3초마다 5명</dd>
+            </div>
+        </dl>
+
+        <p class="notice">차례가 되면 예매 페이지로 자동 이동합니다.<br>새로고침하면 순번이 뒤로 밀려요.</p>
+        <button type="button" class="btn ghost" onclick="leave()">대기 취소</button>
+    </section>
+
+    <!-- 입장 허용 -->
+    <section id="allowed" hidden>
+        <div class="icon success">✓</div>
+        <span class="pill success">입장 가능</span>
+        <h2 class="title" style="margin-top:14px;">내 차례가 되었어요</h2>
+        <p class="desc">입장 토큰을 받았어요. 예매 페이지로 이동합니다.</p>
+    </section>
+
+    <!-- 대기 취소 -->
+    <section id="cancelled" hidden>
+        <div class="icon neutral">×</div>
+        <span class="pill neutral">대기 취소</span>
+        <h2 class="title" style="margin-top:14px;">대기를 취소했어요</h2>
+        <p class="desc">다시 줄을 서면 맨 뒤 순번으로 등록됩니다.</p>
+        <button type="button" class="btn" onclick="location.reload()">다시 줄 서기</button>
+    </section>
+</main>
+
+<p class="footnote">Spring WebFlux · Redis ZSET 대기열</p>
 
 <script>
+    // 스케줄러(QueueService.allowUsers)가 3초마다 앞에서 5명씩 입장시킨다
+    const BATCH_SIZE = 5;
+    const BATCH_INTERVAL_SEC = 3;
+
     const userId = "user_" + Math.floor(Math.random() * 10000);
     let timer = null;
+    let initialRank = null;
 
     // 1. 진입 시 바로 등록
     fetch(`/api/register?userId=${userId}`, { method: 'POST' })
         .then(res => res.json())
         .then(data => {
-            updateUI(data);
+            handle(data);
             // 1초마다 순번 조회 (Polling)
             timer = setInterval(checkStatus, 1000);
         });
@@ -33,26 +81,52 @@
     function checkStatus() {
         fetch(`/api/status?userId=${userId}`)
             .then(res => res.json())
-            .then(data => {
-                updateUI(data);
-                if (data.status === 'ALLOWED') {
-                    clearInterval(timer);
-                    alert("🎉 입장 순서가 되었습니다! 티켓팅 페이지로 이동합니다.");
-                    window.location.href = "/ticket.html";
-                }
-            });
+            .then(handle);
     }
 
-    function updateUI(data) {
+    function handle(data) {
         if (!data) return;
 
         if (data.status === 'ALLOWED') {
-            document.getElementById('status-text').innerText = "입장 가능!";
-            document.getElementById('rank-num').innerText = "0 명";
-        } else {
-            const safeRank = Math.max(0, data.rank ?? 0);
-            document.getElementById('status-text').innerText = "내 앞의 대기 인원";
-            document.getElementById('rank-num').innerText = `${safeRank} 명`;
+            clearInterval(timer);
+            show('allowed');
+            setTimeout(() => {
+                window.location.href = `/ticket.html?token=${data.token}`;
+            }, 1500);
+            return;
+        }
+
+        if (data.status === 'NOT_FOUND') {
+            clearInterval(timer);
+            show('cancelled');
+            return;
+        }
+
+        const rank = Math.max(0, data.rank ?? 0);
+        if (initialRank === null) initialRank = rank;
+
+        document.getElementById('status-pill').innerText = '대기 중';
+        document.getElementById('rank-num').innerText = rank.toLocaleString('ko-KR');
+        document.getElementById('eta').innerText = formatEta(rank);
+
+        const percent = initialRank === 0 ? 100 : Math.round((1 - rank / initialRank) * 100);
+        const bar = document.getElementById('progress-bar');
+        bar.style.width = `${Math.max(4, percent)}%`;
+        bar.parentElement.setAttribute('aria-valuenow', String(percent));
+    }
+
+    // 내 앞 인원이 몇 번의 입장 주기를 기다려야 하는지로 계산한 대략적인 시간
+    function formatEta(rank) {
+        const seconds = (Math.floor(rank / BATCH_SIZE) + 1) * BATCH_INTERVAL_SEC;
+        if (seconds < 60) return `약 ${seconds}초`;
+        const min = Math.floor(seconds / 60);
+        const sec = seconds % 60;
+        return sec === 0 ? `약 ${min}분` : `약 ${min}분 ${sec}초`;
+    }
+
+    function show(id) {
+        for (const section of ['waiting', 'allowed', 'cancelled']) {
+            document.getElementById(section).hidden = section !== id;
         }
     }
 
@@ -60,8 +134,7 @@
         fetch(`/api/leave?userId=${userId}`, { method: 'POST' })
             .then(() => {
                 clearInterval(timer);
-                alert("대기가 취소되었습니다.");
-                location.reload();
+                show('cancelled');
             });
     }
 </script>
