@@ -63,6 +63,26 @@ POST /api/register                      GET /api/status                        G
                                                                                           ├─ Valid   ─► [ 200 OK : ticket.html ]
                                                                                           └─ Invalid ─► [ 303 Redirect : /error/401.html or /error/403.html ]
 ```
+## ▶️ 실행 방법
+
+Redis 접속 정보는 환경변수로 넣습니다. 값이 없으면 로컬 Redis(`localhost:6379`)에 붙습니다.
+
+| 환경변수 | 기본값 | 설명 |
+| --- | --- | --- |
+| `REDIS_HOST` | `localhost` | Redis 호스트 |
+| `REDIS_PORT` | `6379` | Redis 포트 |
+| `REDIS_PASSWORD` | (없음) | Redis 비밀번호 |
+| `REDIS_SSL` | `false` | Upstash 등 TLS가 필요한 Redis는 `true` |
+| `PORT` | `8080` | 서버 포트 |
+
+```bash
+# 로컬 Redis
+./gradlew bootRun
+
+# Upstash
+REDIS_HOST=<host>.upstash.io REDIS_PASSWORD=<password> REDIS_SSL=true ./gradlew bootRun
+```
+
 ## 3. 부하 테스트 결과 및 분석
 대규모 순간 트래픽 환경에서의 시스템 처리 한계 및 안정성을 검증하기 위해 Grafana k6를 활용해 부하 테스트를 실시했습니다.
 

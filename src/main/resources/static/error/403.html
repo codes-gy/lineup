@@ -2,18 +2,19 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>403 - 접근 거부</title>
-    <style>
-        body { font-family: sans-serif; background: #f8f9fa; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); text-align: center; max-width: 400px; }
-        .btn { display: inline-block; margin-top: 20px; padding: 12px 24px; background: #4f46e5; color: white; text-decoration: none; border-radius: 8px; }
-    </style>
+    <link rel="stylesheet" href="/css/lineup.css">
 </head>
 <body>
-<div class="card">
-    <h1>403 Forbidden</h1>
-    <p>만료되었거나 유효하지 않은 입장 토큰입니다.</p>
-    <a href="/index.html" class="btn">대기열 등록</a>
-</div>
+<div class="brand"><span class="brand-mark">L</span>LineUp</div>
+
+<main class="card">
+    <div class="icon danger">!</div>
+    <p class="code">403 · FORBIDDEN</p>
+    <h1 class="title">입장 토큰이 만료됐어요</h1>
+    <p class="desc">토큰은 발급 후 5분 동안만 유효해요.<br>만료되었거나 유효하지 않은 토큰입니다.</p>
+    <a href="/index.html" class="btn">대기열에 다시 줄 서기</a>
+</main>
 </body>
 </html>

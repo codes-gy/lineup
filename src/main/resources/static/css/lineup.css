@@ -1,0 +1,285 @@
+/* LineUp 공통 스타일 — 대기 · 입장 · 오류 화면이 함께 쓴다 */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+
+:root {
+    --bg: #0f1226;
+    --bg-glow: #2a2f6b;
+    --card: #ffffff;
+    --text: #14162b;
+    --muted: #6b7090;
+    --line: #e7e8f2;
+    --accent: #5b5bf0;
+    --accent-soft: #eeeefe;
+    --success: #13a26b;
+    --success-soft: #e6f7ef;
+    --danger: #e5484d;
+    --danger-soft: #fdecec;
+    --radius: 20px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    color: var(--text);
+    background: radial-gradient(120% 80% at 50% 0%, var(--bg-glow) 0%, var(--bg) 60%);
+    -webkit-font-smoothing: antialiased;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    color: #c9cbff;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.brand-mark {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 13px;
+}
+
+.card {
+    width: 100%;
+    max-width: 400px;
+    padding: 32px 28px 28px;
+    border-radius: var(--radius);
+    background: var(--card);
+    box-shadow: 0 24px 60px rgba(5, 6, 20, 0.45);
+    text-align: center;
+}
+
+.event {
+    padding-bottom: 20px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--line);
+}
+
+.event-label {
+    margin: 0 0 6px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.event-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 800;
+}
+
+.pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.pill::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.pill.is-live::before {
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+.pill.success {
+    background: var(--success-soft);
+    color: var(--success);
+}
+
+.pill.danger {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.pill.neutral {
+    background: #f1f2f6;
+    color: var(--muted);
+}
+
+@keyframes pulse {
+    50% {
+        opacity: 0.25;
+    }
+}
+
+.caption {
+    margin: 22px 0 4px;
+    color: var(--muted);
+    font-size: 15px;
+}
+
+.big-number {
+    margin: 0;
+    font-size: 64px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+}
+
+.big-number small {
+    margin-left: 4px;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--muted);
+}
+
+.progress {
+    height: 8px;
+    margin: 24px 0 10px;
+    border-radius: 999px;
+    background: #f1f2f6;
+    overflow: hidden;
+}
+
+.progress-bar {
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #7b7bff, var(--accent));
+    transition: width 0.6s ease;
+}
+
+.meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 20px 0 0;
+}
+
+.meta div {
+    padding: 14px 12px;
+    border-radius: 14px;
+    background: #f7f7fb;
+    text-align: left;
+}
+
+.meta dt {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.meta dd {
+    margin: 4px 0 0;
+    font-size: 17px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.notice {
+    margin: 20px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.btn {
+    display: inline-block;
+    width: 100%;
+    margin-top: 24px;
+    padding: 14px 20px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--accent);
+    color: #fff;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.btn.ghost {
+    background: #f1f2f6;
+    color: var(--text);
+}
+
+.btn:focus-visible {
+    outline: 3px solid #b9b9ff;
+    outline-offset: 2px;
+}
+
+.icon {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 18px;
+    border-radius: 50%;
+    font-size: 28px;
+    font-weight: 800;
+}
+
+.icon.success {
+    background: var(--success-soft);
+    color: var(--success);
+}
+
+.icon.danger {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.icon.neutral {
+    background: #f1f2f6;
+    color: var(--muted);
+}
+
+.code {
+    margin: 0 0 4px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 800;
+}
+
+.desc {
+    margin: 10px 0 0;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.footnote {
+    margin-top: 18px;
+    color: #8f93c4;
+    font-size: 12px;
+}
+
+[hidden] {
+    display: none !important;
+}

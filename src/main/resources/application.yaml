@@ -1,14 +1,15 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   application:
     name: wating-system
   data:
     redis:
-      host: "divine-pegasus-70696.upstash.io"
-      port: 6379
-      password: gQAAAAAAARQoAAIgcDE4Mzg2MWE3NjUwMjA0OTI5ODZkNjU1YTM2ZTdhYmUxNg
+      # 접속 정보는 환경변수로 넣는다. 값이 없으면 로컬 Redis(localhost:6379)에 붙는다
+      # Upstash는 REDIS_SSL=true가 필수
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
       ssl:
-        enabled: true # Upstash는 SSL(TLS) 연결이 필수입니다!
-
+        enabled: ${REDIS_SSL:false}
