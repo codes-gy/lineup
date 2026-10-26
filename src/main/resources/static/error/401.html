@@ -7,14 +7,19 @@
     <link rel="stylesheet" href="/css/lineup.css">
 </head>
 <body>
-<div class="brand"><span class="brand-mark">L</span>LineUp</div>
+<div class="app">
+    <header class="top">
+        <span class="brand">LineUp</span>
+        <span class="event">콘서트 예매</span>
+    </header>
 
-<main class="card">
-    <div class="icon danger">!</div>
-    <p class="code">401 · UNAUTHORIZED</p>
-    <h1 class="title">입장 토큰이 없어요</h1>
-    <p class="desc">예매 페이지는 대기열을 통과해야 들어올 수 있어요.<br>대기열에 먼저 줄을 서 주세요.</p>
-    <a href="/index.html" class="btn">대기열에 다시 줄 서기</a>
-</main>
+    <main class="state">
+        <div class="badge danger">!</div>
+        <p class="code">401 · UNAUTHORIZED</p>
+        <h1 class="title">아직 차례가 오지 않았어요</h1>
+        <p class="desc">예매 페이지는 대기열을 통과해야 들어올 수 있어요.<br>대기열에 먼저 줄을 서 주세요.</p>
+        <a href="/index.html" class="btn primary" style="margin-top: 16px">대기열에 줄 서기</a>
+    </main>
+</div>
 </body>
 </html>
