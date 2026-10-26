@@ -121,6 +121,12 @@
         if (initialRank === null) {
             initialRank = rank;
             document.getElementById('ticket-no').innerText = `대기 번호 ${(rank + 1).toLocaleString('ko-KR')}`;
+            // 입장 완료 화면에서 보여 줄 대기 번호
+            try {
+                sessionStorage.setItem('lineup.ticketNo', String(rank + 1));
+            } catch (e) {
+                // 저장소를 못 쓰면 입장 완료 화면에서 번호를 생략한다
+            }
         }
 
         const seconds = etaSeconds(rank);
