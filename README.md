@@ -87,82 +87,66 @@ REDIS_HOST=<host>.upstash.io REDIS_PASSWORD=<password> REDIS_SSL=true ./gradlew 
 대규모 순간 트래픽 환경에서의 시스템 처리 한계 및 안정성을 검증하기 위해 Grafana k6를 활용해 부하 테스트를 실시했습니다.
 
 ### 1) 테스트 환경 및 시나리오
-- **테스트 도구**: Grafana k6
-- **시나리오**: 최대 300명의 가상 사용자(VUs)가 50초 동안 대기열 등록(`POST`) 및 순번 조회(`GET`)를 지속적으로 반복 수행
+- **테스트 도구**: Grafana k6 (`load-test.js`)
+- **시나리오**: 최고 인원(`PEAK`)까지 가상 사용자(VUs)를 늘렸다 줄이는 50초 동안 대기열 등록(`POST /api/register`)과 순번 조회(`GET /api/status`)를 1초 간격으로 반복
+    - 10초 동안 최고 인원의 1/6까지 → 30초 동안 최고 인원까지 → 10초 동안 0명
+    - 최고 인원 300 · 1,000 · 3,000 · 5,000명으로 네 번 실행 (`k6 run -e PEAK=5000 load-test.js`), 실행마다 Redis를 비움
 - **목표 지표 (Thresholds)**:
     - 요청 실패율 (`http_req_failed`): 1.0% 미만
     - 95% 응답 시간 (`http_req_duration p(95)`): 200ms 미만
 
 ### 2) 부하 테스트 결과 요약
 
-| 구분                             | 목표치  | 측정 결과  | 달성 여부 |
-|:-------------------------------| :--- | :--- | :---: |
-| **총 요청 수**                     | - | 6,696건 (초당 ~131.6 RPS) | - |
-| **요청 실패율**                     | 1.0% 미만 | **0.00%** (0 / 6,696) | PASS |
-| **평균 응답 시간**                   | - | **91.84 ms** | - |
-| **95% 응답 시간** | 200 ms 미만 | **113.37 ms** | PASS |
-| **최대 응답 시간**    | - | 126.22 ms | - |
-| **최대 가상 사용자**        | - | 300 VUs | - |
+| 최고 인원 | 총 요청 수 | 초당 요청 | 평균 응답 | 95% 응답 | 최대 응답 | 실패율 | 달성 여부 |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | :---: |
+| 300 VUs | 7,276건 | 147.3 | 1.31 ms | **2.43 ms** | 17.79 ms | **0.00%** | PASS |
+| 1,000 VUs | 24,294건 | 479.8 | 1.04 ms | **1.47 ms** | 19.03 ms | **0.00%** | PASS |
+| 3,000 VUs | 72,852건 | 1,472.3 | 1.39 ms | **2.20 ms** | 63.09 ms | **0.00%** | PASS |
+| 5,000 VUs | 121,420건 | 2,454.5 | 1.61 ms | **3.25 ms** | 38.85 ms | **0.00%** | PASS |
 
 #### 성능 평가 및 분석
-* **안정성**: 총 6,696건의 요청 동안 **실패율 0.00%**를 기록하며 동시 접속 요청을 안정적으로 처리했습니다.
-* **응답 속도**: 95%의 요청이 **113.37ms** 내에 완료되어 목표 지표(200ms 미만)를 여유 있게 충족했습니다.
-
+* **안정성**: 가상 사용자 5,000명이 몰린 실행에서도 총 121,420건의 요청을 **실패 0건**으로 처리했습니다.
+* **응답 속도**: 인원을 300명에서 5,000명으로 약 17배 늘리는 동안 95% 응답 시간은 모두 **4ms 이내**로, 목표(200ms 미만)를 크게 밑돌았습니다.
+* **처리량**: 초당 요청이 인원에 비례해 늘어(5,000명에서 초당 약 2,454건), 이 범위에서는 처리 한계에 닿지 않았습니다.
 
 <details>
 <summary>
-    <b>k6 로그 접기/펼치기</b>
+    <b>k6 로그 접기/펼치기 (최고 인원 5,000명)</b>
 </summary>
 
 ```text
-
-          /\      Grafana   /‾‾/
-         /  \    /  \     |\  __   /  /
-        /    \  /    \    | |/ /  /   ‾‾\
-       /      \/      \   |   (  |  (‾)  |
-      / __________ \  |_|\_\  \_____/
-
-     execution: local
-        script: load-test.js
-        output: -
-
-     scenarios: (100.00%) 1 scenario, 300 max VUs, 1m20s max duration (incl. graceful stop):
-              * default: Up to 300 looping VUs for 50s over 3 stages (gracefulRampDown: 30s, gracefulStop: 30s)
-
-█ THRESHOLDS
+  █ THRESHOLDS 
 
     http_req_duration
-    ✓ 'p(95)<200' p(95)=113.37ms
+    ✓ 'p(95)<200' p(95)=3.25ms
 
     http_req_failed
     ✓ 'rate<0.01' rate=0.00%
 
-█ TOTAL RESULTS
 
-    checks_total.......: 6696    131.587138/s
-    checks_succeeded...: 100.00% 6696 out of 6696
-    checks_failed......: 0.00%   0 out of 6696
+  █ TOTAL RESULTS 
+
+    checks_total.......: 121420  2454.489709/s
+    checks_succeeded...: 100.00% 121420 out of 121420
+    checks_failed......: 0.00%   0 out of 121420
 
     ✓ 등록 성공 (HTTP 200)
     ✓ 순번 조회 성공 (HTTP 200)
 
     HTTP
-    http_req_duration..............: avg=91.84ms min=51.77µs med=77.88ms max=126.22ms p(90)=112.29ms p(95)=113.37ms
-      { expected_response:true }...: avg=91.84ms min=51.77µs med=77.88ms max=126.22ms p(90)=112.29ms p(95)=113.37ms
-    http_req_failed................: 0.00%  0 out of 6696
-    http_reqs......................: 6696   131.587138/s
+    http_req_duration..............: avg=1.61ms min=32.81µs med=1.14ms max=38.85ms p(90)=2.15ms p(95)=3.25ms
+      { expected_response:true }...: avg=1.61ms min=32.81µs med=1.14ms max=38.85ms p(90)=2.15ms p(95)=3.25ms
+    http_req_failed................: 0.00%  0 out of 121420
+    http_reqs......................: 121420 2454.489709/s
 
     EXECUTION
-    iteration_duration.............: avg=2.18s   min=2.15s   med=2.18s   max=2.2s     p(90)=2.19s    p(95)=2.19s   
-    iterations.....................: 3348   65.793569/s
-    vus............................: 10     min=5       max=299
-    vus_max........................: 300    min=300     max=300
+    iteration_duration.............: avg=2s     min=2s      med=2s     max=2.04s   p(90)=2s     p(95)=2s    
+    iterations.....................: 60710  1227.244854/s
+    vus............................: 181    min=64          max=4967
+    vus_max........................: 5000   min=5000        max=5000
 
     NETWORK
-    data_received..................: 833 kB 16 kB/s
-    data_sent......................: 788 kB 16 kB/s
-
-running (0m50.9s), 000/300 VUs, 3348 complete and 0 interrupted iterations
+    data_received..................: 17 MB  343 kB/s
+    data_sent......................: 13 MB  270 kB/s
 ```
-
 </details>

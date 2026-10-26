@@ -7,63 +7,77 @@
     <link rel="stylesheet" href="/css/lineup.css">
 </head>
 <body>
-<div class="brand"><span class="brand-mark">L</span>LineUp</div>
-
-<main class="card">
-    <div class="event">
-        <p class="event-label">티켓 오픈</p>
-        <h1 class="event-title">콘서트 예매</h1>
-    </div>
+<div class="app">
+    <header class="top">
+        <span class="brand">LineUp</span>
+        <span class="event">콘서트 예매 대기</span>
+    </header>
 
     <!-- 대기 중 -->
-    <section id="waiting">
-        <span class="pill is-live" id="status-pill">대기표 발급 중</span>
-        <p class="caption">내 앞의 대기 인원</p>
-        <p class="big-number"><span id="rank-num">-</span><small>명</small></p>
-
-        <div class="progress" role="progressbar" aria-label="대기 진행률" aria-valuemin="0" aria-valuemax="100">
-            <div class="progress-bar" id="progress-bar"></div>
-        </div>
-
-        <dl class="meta">
-            <div>
-                <dt>예상 대기 시간</dt>
-                <dd id="eta">-</dd>
+    <main id="waiting" class="app" style="min-height: 0; flex-grow: 1">
+        <section class="hero">
+            <div class="ring">
+                <svg width="250" height="250" viewBox="0 0 250 250" role="img" aria-label="입장 진행률" id="ring">
+                    <circle class="ring-track" cx="125" cy="125" r="108"></circle>
+                    <circle class="ring-bar" id="ring-bar" cx="125" cy="125" r="108"
+                            stroke-dasharray="0 679" transform="rotate(-90 125 125)"></circle>
+                </svg>
+                <div class="ring-center">
+                    <span class="ring-label">예상 입장까지</span>
+                    <span class="ring-value" id="eta">--:--</span>
+                    <span class="ring-label" id="eta-clock">대기표 발급 중</span>
+                </div>
             </div>
-            <div>
-                <dt>입장 속도</dt>
-                <dd>3초마다 5명</dd>
-            </div>
-        </dl>
+            <p class="ahead" aria-live="polite">내 앞에 <strong id="rank-num">-</strong> 명</p>
+        </section>
 
-        <p class="notice">차례가 되면 예매 페이지로 자동 이동합니다.<br>새로고침하면 순번이 뒤로 밀려요.</p>
-        <button type="button" class="btn ghost" onclick="leave()">대기 취소</button>
-    </section>
+        <section class="sheet">
+            <div class="sheet-head">
+                <h1 class="sheet-title">입장 일정</h1>
+                <span class="sheet-note">3초마다 5명 기준</span>
+            </div>
+            <ol class="timeline">
+                <li class="done">
+                    <time id="registered-at">--:--</time>
+                    <span class="rail"><span class="dot"></span></span>
+                    <span class="step"><strong>대기열 등록</strong><span id="ticket-no">대기 번호 -</span></span>
+                </li>
+                <li class="now">
+                    <time>지금</time>
+                    <span class="rail"><span class="dot"></span></span>
+                    <span class="step"><strong id="progress-text">순번 기다리는 중</strong><span>1초마다 새 순번</span></span>
+                </li>
+                <li>
+                    <time id="entry-at">~--:--</time>
+                    <span class="rail"><span class="dot"></span></span>
+                    <span class="step"><strong>입장 허용</strong><span>예매 페이지로 자동 이동</span></span>
+                </li>
+            </ol>
+            <button type="button" class="btn" onclick="leave()">대기 취소</button>
+        </section>
+    </main>
 
     <!-- 입장 허용 -->
-    <section id="allowed" hidden>
-        <div class="icon success">✓</div>
-        <span class="pill success">입장 가능</span>
-        <h2 class="title" style="margin-top:14px;">내 차례가 되었어요</h2>
-        <p class="desc">입장 토큰을 받았어요. 예매 페이지로 이동합니다.</p>
-    </section>
+    <main id="allowed" class="state" hidden>
+        <div class="badge">✓</div>
+        <h1 class="title">내 차례가 되었어요</h1>
+        <p class="desc">예매 페이지로 이동합니다.</p>
+    </main>
 
     <!-- 대기 취소 -->
-    <section id="cancelled" hidden>
-        <div class="icon neutral">×</div>
-        <span class="pill neutral">대기 취소</span>
-        <h2 class="title" style="margin-top:14px;">대기를 취소했어요</h2>
+    <main id="cancelled" class="state" hidden>
+        <div class="badge">×</div>
+        <h1 class="title">대기를 취소했어요</h1>
         <p class="desc">다시 줄을 서면 맨 뒤 순번으로 등록됩니다.</p>
-        <button type="button" class="btn" onclick="location.reload()">다시 줄 서기</button>
-    </section>
-</main>
-
-<p class="footnote">Spring WebFlux · Redis ZSET 대기열</p>
+        <button type="button" class="btn primary" style="margin-top: 16px" onclick="location.reload()">다시 줄 서기</button>
+    </main>
+</div>
 
 <script>
     // 스케줄러(QueueService.allowUsers)가 3초마다 앞에서 5명씩 입장시킨다
     const BATCH_SIZE = 5;
     const BATCH_INTERVAL_SEC = 3;
+    const RING_LENGTH = 2 * Math.PI * 108;
 
     const userId = "user_" + Math.floor(Math.random() * 10000);
     let timer = null;
@@ -73,6 +87,7 @@
     fetch(`/api/register?userId=${userId}`, { method: 'POST' })
         .then(res => res.json())
         .then(data => {
+            document.getElementById('registered-at').innerText = formatClock(new Date());
             handle(data);
             // 1초마다 순번 조회 (Polling)
             timer = setInterval(checkStatus, 1000);
@@ -103,25 +118,44 @@
         }
 
         const rank = Math.max(0, data.rank ?? 0);
-        if (initialRank === null) initialRank = rank;
+        if (initialRank === null) {
+            initialRank = rank;
+            document.getElementById('ticket-no').innerText = `대기 번호 ${(rank + 1).toLocaleString('ko-KR')}`;
+            // 입장 완료 화면에서 보여 줄 대기 번호
+            try {
+                sessionStorage.setItem('lineup.ticketNo', String(rank + 1));
+            } catch (e) {
+                // 저장소를 못 쓰면 입장 완료 화면에서 번호를 생략한다
+            }
+        }
 
-        document.getElementById('status-pill').innerText = '대기 중';
-        document.getElementById('rank-num').innerText = rank.toLocaleString('ko-KR');
-        document.getElementById('eta').innerText = formatEta(rank);
-
+        const seconds = etaSeconds(rank);
+        const entryAt = new Date(Date.now() + seconds * 1000);
         const percent = initialRank === 0 ? 100 : Math.round((1 - rank / initialRank) * 100);
-        const bar = document.getElementById('progress-bar');
-        bar.style.width = `${Math.max(4, percent)}%`;
-        bar.parentElement.setAttribute('aria-valuenow', String(percent));
+
+        document.getElementById('rank-num').innerText = rank.toLocaleString('ko-KR');
+        document.getElementById('eta').innerText = formatDuration(seconds);
+        document.getElementById('eta-clock').innerText =
+            `약 ${entryAt.getHours()}시 ${String(entryAt.getMinutes()).padStart(2, '0')}분 입장`;
+        document.getElementById('entry-at').innerText = `~${formatClock(entryAt)}`;
+        document.getElementById('progress-text').innerText = `순번 기다리는 중 · ${percent}%`;
+
+        const filled = (Math.max(2, percent) / 100) * RING_LENGTH;
+        document.getElementById('ring-bar').setAttribute('stroke-dasharray', `${filled} ${RING_LENGTH}`);
+        document.getElementById('ring').setAttribute('aria-label', `입장 진행률 ${percent}%`);
     }
 
     // 내 앞 인원이 몇 번의 입장 주기를 기다려야 하는지로 계산한 대략적인 시간
-    function formatEta(rank) {
-        const seconds = (Math.floor(rank / BATCH_SIZE) + 1) * BATCH_INTERVAL_SEC;
-        if (seconds < 60) return `약 ${seconds}초`;
-        const min = Math.floor(seconds / 60);
-        const sec = seconds % 60;
-        return sec === 0 ? `약 ${min}분` : `약 ${min}분 ${sec}초`;
+    function etaSeconds(rank) {
+        return (Math.floor(rank / BATCH_SIZE) + 1) * BATCH_INTERVAL_SEC;
+    }
+
+    function formatDuration(seconds) {
+        return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+    }
+
+    function formatClock(date) {
+        return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
     }
 
     function show(id) {
