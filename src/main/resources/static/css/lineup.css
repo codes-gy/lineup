@@ -1,20 +1,17 @@
 /* LineUp 공통 스타일 — 대기 · 입장 · 오류 화면이 함께 쓴다 */
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600&display=swap');
 
 :root {
-    --bg: #0f1226;
-    --bg-glow: #2a2f6b;
-    --card: #ffffff;
-    --text: #14162b;
-    --muted: #6b7090;
-    --line: #e7e8f2;
-    --accent: #5b5bf0;
-    --accent-soft: #eeeefe;
-    --success: #13a26b;
-    --success-soft: #e6f7ef;
-    --danger: #e5484d;
-    --danger-soft: #fdecec;
-    --radius: 20px;
+    --bg: #fff4ec;
+    --surface: #ffffff;
+    --text: #2a1810;
+    --muted: #7a5a4a;
+    --line: #f0e2d8;
+    --track: #f6dccb;
+    --soft: #fbefe7;
+    --accent: #e8590c;
+    --danger: #d6336c;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
 }
 
 * {
@@ -25,259 +22,339 @@ body {
     margin: 0;
     min-height: 100vh;
     display: flex;
-    flex-direction: column;
-    align-items: center;
     justify-content: center;
-    padding: 32px 16px;
-    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    background: var(--bg);
     color: var(--text);
-    background: radial-gradient(120% 80% at 50% 0%, var(--bg-glow) 0%, var(--bg) 60%);
+    font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+    word-break: keep-all;
     -webkit-font-smoothing: antialiased;
 }
 
-.brand {
+.app {
+    width: 100%;
+    max-width: 440px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.top {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 20px;
-    color: #c9cbff;
-    font-size: 15px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    justify-content: space-between;
+    padding: 20px 20px 0;
 }
 
-.brand-mark {
-    display: grid;
-    place-items: center;
-    width: 26px;
-    height: 26px;
-    border-radius: 8px;
-    background: var(--accent);
-    color: #fff;
-    font-size: 13px;
-}
-
-.card {
-    width: 100%;
-    max-width: 400px;
-    padding: 32px 28px 28px;
-    border-radius: var(--radius);
-    background: var(--card);
-    box-shadow: 0 24px 60px rgba(5, 6, 20, 0.45);
-    text-align: center;
+.brand {
+    font-size: 16px;
+    font-weight: 900;
 }
 
 .event {
-    padding-bottom: 20px;
-    margin-bottom: 24px;
-    border-bottom: 1px solid var(--line);
-}
-
-.event-label {
-    margin: 0 0 6px;
+    font-size: 12px;
     color: var(--muted);
-    font-size: 13px;
 }
 
-.event-title {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 800;
-}
-
-.pill {
-    display: inline-flex;
+/* 링 게이지 */
+.hero {
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 999px;
-    background: var(--accent-soft);
-    color: var(--accent);
+    gap: 18px;
+    padding: 30px 20px 24px;
+}
+
+.ring {
+    position: relative;
+    width: 250px;
+    height: 250px;
+}
+
+.ring svg {
+    display: block;
+}
+
+.ring-track {
+    fill: var(--surface);
+    stroke: var(--track);
+    stroke-width: 16;
+}
+
+.ring-bar {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 16;
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.6s ease;
+}
+
+.ring-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    text-align: center;
+}
+
+.ring-label {
     font-size: 13px;
-    font-weight: 700;
-}
-
-.pill::before {
-    content: '';
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: currentColor;
-}
-
-.pill.is-live::before {
-    animation: pulse 1.2s ease-in-out infinite;
-}
-
-.pill.success {
-    background: var(--success-soft);
-    color: var(--success);
-}
-
-.pill.danger {
-    background: var(--danger-soft);
-    color: var(--danger);
-}
-
-.pill.neutral {
-    background: #f1f2f6;
     color: var(--muted);
 }
 
-@keyframes pulse {
-    50% {
-        opacity: 0.25;
-    }
-}
-
-.caption {
-    margin: 22px 0 4px;
-    color: var(--muted);
-    font-size: 15px;
-}
-
-.big-number {
-    margin: 0;
-    font-size: 64px;
-    font-weight: 800;
-    line-height: 1.1;
+.ring-value {
+    font-family: var(--mono);
+    font-size: 54px;
+    font-weight: 600;
+    line-height: 1;
     letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums;
 }
 
-.big-number small {
-    margin-left: 4px;
-    font-size: 24px;
+.ahead {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0;
+    color: var(--text);
+    font-size: 16px;
     font-weight: 700;
-    color: var(--muted);
 }
 
-.progress {
-    height: 8px;
-    margin: 24px 0 10px;
-    border-radius: 999px;
-    background: #f1f2f6;
-    overflow: hidden;
-}
-
-.progress-bar {
-    width: 0;
-    height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, #7b7bff, var(--accent));
-    transition: width 0.6s ease;
-}
-
-.meta {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin: 20px 0 0;
-}
-
-.meta div {
-    padding: 14px 12px;
-    border-radius: 14px;
-    background: #f7f7fb;
-    text-align: left;
-}
-
-.meta dt {
-    color: var(--muted);
-    font-size: 12px;
-}
-
-.meta dd {
-    margin: 4px 0 0;
-    font-size: 17px;
-    font-weight: 700;
+.ahead strong {
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 32px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums;
 }
 
-.notice {
-    margin: 20px 0 0;
-    color: var(--muted);
-    font-size: 13px;
-    line-height: 1.6;
+/* 아래 흰 패널 */
+.sheet {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 24px 22px;
+    border-radius: 28px 28px 0 0;
+    background: var(--surface);
+    box-shadow: 0 -8px 24px rgba(42, 24, 16, 0.06);
 }
 
-.btn {
-    display: inline-block;
-    width: 100%;
-    margin-top: 24px;
-    padding: 14px 20px;
-    border: 0;
-    border-radius: 12px;
+.sheet-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+
+.sheet-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 900;
+}
+
+.sheet-note {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+/* 입장 일정 타임라인 */
+.timeline {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.timeline li {
+    display: grid;
+    grid-template-columns: 56px 18px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+}
+
+.timeline time {
+    padding-top: 1px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+}
+
+.dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--line);
+}
+
+.rail::after {
+    content: '';
+    width: 2px;
+    flex-grow: 1;
+    min-height: 28px;
+    background: var(--line);
+}
+
+.timeline li:last-child .rail::after {
+    display: none;
+}
+
+.step {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 14px;
+}
+
+.step strong {
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.step span {
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.timeline .done time {
+    color: var(--text);
+}
+
+.timeline .done .dot,
+.timeline .done .rail::after {
     background: var(--accent);
-    color: #fff;
+}
+
+.timeline .done .step strong {
+    color: var(--text);
+}
+
+.timeline .now time {
+    color: var(--accent);
+}
+
+.timeline .now .dot {
+    border: 3px solid var(--accent);
+    background: var(--surface);
+}
+
+.timeline .now .step strong {
+    color: var(--text);
+}
+
+/* 버튼 · 상태 화면 */
+.btn {
+    display: block;
+    width: 100%;
+    height: 50px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--soft);
+    color: var(--text);
     font: inherit;
     font-size: 15px;
     font-weight: 700;
+    text-align: center;
+    line-height: 50px;
     text-decoration: none;
     cursor: pointer;
 }
 
-.btn.ghost {
-    background: #f1f2f6;
-    color: var(--text);
+.btn.primary {
+    background: var(--accent);
+    color: #ffffff;
 }
 
 .btn:focus-visible {
-    outline: 3px solid #b9b9ff;
+    outline: 3px solid #ffc9a8;
     outline-offset: 2px;
 }
 
-.icon {
+.state {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 40px 28px;
+    text-align: center;
+}
+
+.badge {
     display: grid;
     place-items: center;
-    width: 64px;
-    height: 64px;
-    margin: 0 auto 18px;
+    width: 72px;
+    height: 72px;
+    margin-bottom: 8px;
     border-radius: 50%;
-    font-size: 28px;
-    font-weight: 800;
+    background: var(--surface);
+    color: var(--accent);
+    font-size: 30px;
+    font-weight: 900;
+    box-shadow: inset 0 0 0 8px var(--track);
 }
 
-.icon.success {
-    background: var(--success-soft);
-    color: var(--success);
-}
-
-.icon.danger {
-    background: var(--danger-soft);
+.badge.danger {
     color: var(--danger);
-}
-
-.icon.neutral {
-    background: #f1f2f6;
-    color: var(--muted);
+    box-shadow: inset 0 0 0 8px #f9d5e1;
 }
 
 .code {
-    margin: 0 0 4px;
-    color: var(--muted);
+    margin: 0;
+    font-family: var(--mono);
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: 0.08em;
+    color: var(--muted);
 }
 
 .title {
     margin: 0;
     font-size: 22px;
-    font-weight: 800;
+    font-weight: 900;
 }
 
 .desc {
-    margin: 10px 0 0;
-    color: var(--muted);
+    margin: 0;
     font-size: 15px;
     line-height: 1.6;
+    color: var(--muted);
 }
 
-.footnote {
-    margin-top: 18px;
-    color: #8f93c4;
+.facts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 0;
+}
+
+.facts div {
+    padding: 14px;
+    border-radius: 14px;
+    background: var(--soft);
+}
+
+.facts dt {
     font-size: 12px;
+    color: var(--muted);
+}
+
+.facts dd {
+    margin: 4px 0 0;
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 600;
 }
 
 [hidden] {

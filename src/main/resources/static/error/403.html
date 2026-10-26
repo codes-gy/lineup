@@ -7,14 +7,19 @@
     <link rel="stylesheet" href="/css/lineup.css">
 </head>
 <body>
-<div class="brand"><span class="brand-mark">L</span>LineUp</div>
+<div class="app">
+    <header class="top">
+        <span class="brand">LineUp</span>
+        <span class="event">콘서트 예매</span>
+    </header>
 
-<main class="card">
-    <div class="icon danger">!</div>
-    <p class="code">403 · FORBIDDEN</p>
-    <h1 class="title">입장 토큰이 만료됐어요</h1>
-    <p class="desc">토큰은 발급 후 5분 동안만 유효해요.<br>만료되었거나 유효하지 않은 토큰입니다.</p>
-    <a href="/index.html" class="btn">대기열에 다시 줄 서기</a>
-</main>
+    <main class="state">
+        <div class="badge danger">!</div>
+        <p class="code">403 · FORBIDDEN</p>
+        <h1 class="title">입장 시간이 지났어요</h1>
+        <p class="desc">입장 후 5분이 지나 예매 페이지가 닫혔어요.<br>다시 줄을 서 주세요.</p>
+        <a href="/index.html" class="btn primary" style="margin-top: 16px">대기열에 줄 서기</a>
+    </main>
+</div>
 </body>
 </html>
