@@ -83,6 +83,60 @@ Redis 접속 정보는 환경변수로 넣습니다. 값이 없으면 로컬 Red
 REDIS_HOST=<host>.upstash.io REDIS_PASSWORD=<password> REDIS_SSL=true ./gradlew bootRun
 ```
 
+## 📈 운영 · 관측성
+
+Spring Boot Actuator + Micrometer(Prometheus)로 지표를 내보냅니다. 외부에는 `health`, `prometheus` 엔드포인트만 열어 둡니다.
+
+| 엔드포인트 | 용도 |
+| --- | --- |
+| `GET /actuator/health` | 상태 확인 (Redis 연결 포함) |
+| `GET /actuator/prometheus` | Prometheus 수집 |
+
+### 지표
+
+| 지표 (Prometheus 이름) | 종류 | 설명 |
+| --- | --- | --- |
+| `lineup_queue_waiting` | gauge | 대기 인원. 5초마다 `ZCARD`로 측정한 값을 보여줌 (게이지 안에서 Redis를 조회하지 않음) |
+| `lineup_queue_admitted_total` | counter | 입장 허용된 사용자 수 (스케줄러가 꺼낸 인원) |
+| `lineup_scheduler_last_success_timestamp_seconds` | gauge | 입장 스케줄러가 마지막으로 오류 없이 끝난 시각 (epoch 초) |
+| `lineup_entry_rejected_total{reason,status}` | counter | 진입 토큰 거절 수. `reason="missing",status="401"`(토큰 없음), `reason="invalid",status="403"`(만료·위조) |
+| `http_server_requests_seconds_bucket{uri,...}` | histogram | 엔드포인트별 응답 시간 (p95 계산용 버킷 포함) |
+| `lettuce_seconds_bucket{db_operation,error,...}` | histogram | Redis 명령별 지연. Boot가 Lettuce에 Micrometer Observation을 자동으로 붙여 만들어 줌 |
+
+> 진입 필터는 거절할 때 `303` 리다이렉트로 응답하므로, 401/403은 `http_server_requests`가 아니라 `lineup_entry_rejected_total`로 봅니다.
+
+### 알림 규칙 (`monitoring/prometheus-alerts.yml`)
+
+| 알림 | 조건 | 의미 |
+| --- | --- | --- |
+| `LineUpSchedulerStalled` | 5분간 대기 인원 증가 & 입장 0명, 5분 지속 | 입장 스케줄러가 멈췄거나 계속 실패 |
+| `LineUpSchedulerLastSuccessStale` | 마지막 성공 후 30초 초과, 30초 지속 | Redis 연결 끊김 또는 스케줄러 정지 |
+| `LineUpAdmissionRateTooHigh` | 입장 속도 분당 110명 초과, 5분 지속 | 설계치(3초마다 5명 = 분당 100명)를 넘음 → 여러 인스턴스에서 스케줄러가 중복 실행 |
+| `LineUpHighP95Latency` | 엔드포인트별 p95 > 200ms, 5분 지속 | 부하 테스트 목표(200ms) 초과 |
+| `LineUpEntryRejectionSpike` | 401/403 거절 분당 60건 초과, 5분 지속 | 우회 접근 시도 또는 토큰 만료(TTL 5분) 문제 |
+| `LineUpRedisCommandErrors` | 오류로 끝난 Redis 명령 발생, 2분 지속 | Redis 명령 실패 (연결 자체가 끊긴 경우는 `LineUpSchedulerLastSuccessStale`이 잡음) |
+| `LineUpRedisSlowCommands` | Redis 명령별 p95 > 50ms, 5분 지속 | Redis 서버 부하·네트워크 지연 |
+
+임계값은 부하 테스트 결과와 스케줄러 설정에서 정한 초기값이라 운영 트래픽을 보고 조정합니다.
+
+### 수집 방법
+
+```yaml
+# prometheus.yml
+rule_files:
+  - prometheus-alerts.yml
+scrape_configs:
+  - job_name: lineup
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['localhost:8080']
+```
+
+```bash
+# 규칙 파일 문법 검사
+docker run --rm -v "$PWD/monitoring":/w --entrypoint promtool prom/prometheus check rules /w/prometheus-alerts.yml
+```
+
 ## 3. 부하 테스트 결과 및 분석
 대규모 순간 트래픽 환경에서의 시스템 처리 한계 및 안정성을 검증하기 위해 Grafana k6를 활용해 부하 테스트를 실시했습니다.
 

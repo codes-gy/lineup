@@ -13,3 +13,19 @@ spring:
       password: ${REDIS_PASSWORD:}
       ssl:
         enabled: ${REDIS_SSL:false}
+
+# 운영 · 관측성: health와 prometheus 엔드포인트만 노출한다
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      # 엔드포인트별 p95를 Prometheus에서 histogram_quantile로 계산할 수 있게 버킷을 내보낸다
+      percentiles-histogram:
+        http.server.requests: true
+        # Redis 명령 지연(Boot의 Lettuce Observation이 만드는 lettuce 타이머)도 명령별 p95를 볼 수 있게 한다
+        lettuce: true

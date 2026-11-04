@@ -1,0 +1,95 @@
+# LineUp 대기열 서버 알림 규칙 (Prometheus rule file)
+# 증상(사용자가 겪는 문제) 기준으로 잡았다. 임계값은 부하 테스트 결과(p95 수 ms, 목표 200ms)와
+# 스케줄러 설정(3초마다 5명 = 분당 최대 100명)에서 나왔다. 운영 트래픽을 보고 조정한다.
+#
+# 검증: docker run --rm -v "$PWD/monitoring":/w --entrypoint promtool prom/prometheus check rules /w/prometheus-alerts.yml
+groups:
+  - name: lineup-queue
+    rules:
+      # 대기 인원은 늘어나는데 아무도 입장하지 못함 → 입장 스케줄러가 멈췄거나 계속 실패
+      - alert: LineUpSchedulerStalled
+        expr: |
+          delta(lineup_queue_waiting[5m]) > 0
+          and
+          increase(lineup_queue_admitted_total[5m]) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "대기열이 늘어나는데 입장이 0명 ({{ $labels.instance }})"
+          description: "최근 5분간 대기 인원이 증가했지만 입장 허용 수는 0입니다. 스케줄러 ERROR 로그와 Redis 상태를 확인하세요."
+
+      # 스케줄러가 30초 넘게 한 번도 성공하지 못함 (3초 주기 → 10틱 연속 실패/정지)
+      - alert: LineUpSchedulerLastSuccessStale
+        expr: time() - lineup_scheduler_last_success_timestamp_seconds > 30
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "입장 스케줄러 마지막 성공이 30초 이상 지남 ({{ $labels.instance }})"
+          description: "마지막 성공 후 {{ $value | humanizeDuration }} 경과. Redis 연결 실패 또는 스케줄러 정지를 의심하세요."
+
+      # 단일 스케줄러의 최대 입장 속도는 분당 100명(3초마다 5명).
+      # 이보다 빠르면 여러 인스턴스가 각자 스케줄러를 돌리고 있는 것(중복 스케줄러)
+      - alert: LineUpAdmissionRateTooHigh
+        expr: sum by (job, application) (rate(lineup_queue_admitted_total[5m])) * 60 > 110
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "입장 속도가 분당 {{ $value | printf \"%.0f\" }}명으로 설계치(100명)를 넘음"
+          description: "여러 인스턴스에서 입장 스케줄러가 동시에 돌고 있을 수 있습니다. 인스턴스 수와 분산 락/리더 선출 여부를 확인하세요."
+
+  - name: lineup-http
+    rules:
+      # 엔드포인트별 p95 응답 시간이 목표(200ms)를 넘음
+      - alert: LineUpHighP95Latency
+        expr: |
+          histogram_quantile(0.95,
+            sum by (job, application, uri, le) (
+              rate(http_server_requests_seconds_bucket{uri!~"/actuator.*"}[5m])
+            )
+          ) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.uri }} p95 응답 시간 {{ $value | humanizeDuration }} (목표 200ms)"
+          description: "5분 동안 p95가 200ms를 넘었습니다. Redis 명령 지연(lettuce_seconds)과 함께 확인하세요."
+
+      # 진입 토큰 거절(401: 토큰 없음, 403: 만료/위조)이 급증 → 우회 접근 시도 또는 토큰 만료(TTL 5분) 문제
+      # 필터는 303 리다이렉트로 응답하므로 http_server_requests의 status로는 보이지 않는다
+      - alert: LineUpEntryRejectionSpike
+        expr: sum by (job, application, reason, status) (rate(lineup_entry_rejected_total[5m])) * 60 > 60
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "진입 거절({{ $labels.status }}, {{ $labels.reason }})이 분당 {{ $value | printf \"%.0f\" }}건"
+          description: "토큰 없이/만료된 토큰으로 ticket.html 진입 시도가 급증했습니다. 어뷰징 또는 입장 후 토큰 만료 흐름을 확인하세요."
+
+  - name: lineup-redis
+    rules:
+      # Lettuce 명령이 오류로 끝남 (Boot의 Lettuce Observation이 error 태그를 붙인다)
+      # 주의: 연결 자체가 끊긴 경우에는 이 지표가 잡히지 않을 수 있다 → LineUpSchedulerLastSuccessStale이 보완
+      - alert: LineUpRedisCommandErrors
+        expr: sum by (job, application, db_operation) (rate(lettuce_seconds_count{error!="none"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis {{ $labels.db_operation }} 명령 오류 발생"
+          description: "Redis 명령이 오류로 끝나고 있습니다. Redis 상태와 애플리케이션 로그를 확인하세요."
+
+      # Redis 명령 p95 지연이 50ms를 넘음 (평소 수 ms)
+      - alert: LineUpRedisSlowCommands
+        expr: |
+          histogram_quantile(0.95,
+            sum by (job, application, db_operation, le) (rate(lettuce_seconds_bucket[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis {{ $labels.db_operation }} p95 지연 {{ $value | humanizeDuration }}"
+          description: "Redis 명령 지연이 커졌습니다. Redis 서버 부하·네트워크를 확인하세요."
