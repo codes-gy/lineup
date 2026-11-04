@@ -1,5 +1,6 @@
 package com.api.tqt.ws.config;
 
+import com.api.tqt.ws.metrics.QueueMetrics;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
@@ -9,15 +10,18 @@ import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
 import java.net.URI;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ValidationFilter implements WebFilter {
 
     private final ReactiveRedisTemplate<String, String> redisTemplate;
+    private final QueueMetrics queueMetrics;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
@@ -28,6 +32,8 @@ public class ValidationFilter implements WebFilter {
             String token = request.getQueryParams().getFirst("token");
 
             if (token == null || token.isBlank()) {
+                queueMetrics.recordMissingToken();
+                log.debug("[진입 검증] 토큰 없음 → 401");
                 return redirectToErrorPage(exchange, "/error/401.html");
             }
 
@@ -36,6 +42,8 @@ public class ValidationFilter implements WebFilter {
                         if (hasKey) {
                             return chain.filter(exchange); // 정상 진입 허용
                         } else {
+                            queueMetrics.recordInvalidToken();
+                            log.debug("[진입 검증] 만료되었거나 유효하지 않은 토큰 → 403");
                             return redirectToErrorPage(exchange, "/error/403.html");
                         }
                     });
