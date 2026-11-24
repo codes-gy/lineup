@@ -8,7 +8,7 @@
 
 티켓 오픈이나 한정판 상품 판매 시 발생하는 **순간적인 대규모 동시 요청(Flash Traffic)** 환경에서 백엔드 핵심 서비스(예매/결제 데이터베이스)의 과부하 및 다운을 방지하기 위해 설계되었습니다.
 
-클라이언트의 요청을 핵심 데이터베이스로 직접 전달하지 않고 **Redis In-Memory Data Store** 기반의 버퍼 대기열로 수용하며, 대기 순번에 도달한 사용자에게만 암호화된 **진입 토큰(UUID Token)**을 발급하여 안정적인 서비스 이용을 보장합니다.
+클라이언트의 요청을 핵심 데이터베이스로 직접 전달하지 않고 **Redis In-Memory Data Store** 기반의 버퍼 대기열로 수용하며, 대기 순번에 도달한 사용자에게만 추측하기 어려운 랜덤 **진입 토큰(UUID)**을 발급하고, 토큰을 받은 본인만 쓸 수 있게 묶어서 안정적인 서비스 이용을 보장합니다.
 
 ### 🎯 핵심 목표
 - **Non-blocking I/O 아키텍처**를 통한 최소한의 서버 자원(스레드)으로 고밀도 동시 접속 수용
@@ -63,6 +63,21 @@ POST /api/register                      GET /api/status                        G
                                                                                           ├─ Valid   ─► [ 200 OK : ticket.html ]
                                                                                           └─ Invalid ─► [ 303 Redirect : /error/401.html or /error/403.html ]
 ```
+
+## 🔐 대기열 세션과 진입 토큰
+
+`userId`만 알면 남의 순번과 입장 토큰을 조회할 수 있던 문제를 막기 위해, 등록할 때 **대기열 세션**을 발급하고 이후 요청은 세션으로만 본인을 확인합니다.
+
+| API | 본인 확인 | 설명 |
+| --- | --- | --- |
+| `POST /api/register[?userId=]` | 없음 (세션 발급) | `userId`는 선택(없으면 서버가 생성). 응답 헤더 `X-Queue-Session`과 HttpOnly 쿠키 `LINEUP_QUEUE_SESSION`(SameSite=Strict)으로 세션을 내려줌. 다른 세션이 쓰는 `userId`면 `409`, 같은 세션으로 다시 등록하면 순번 유지(`ZADD NX`) |
+| `GET /api/status` | 세션 (헤더 또는 쿠키) | 세션이 없거나 만료되면 `401` |
+| `POST /api/leave` | 세션 (헤더 또는 쿠키) | 대기열 · 입장 허용 상태 · 입장 토큰 · 세션을 모두 삭제 |
+| `GET /ticket.html?token=` | 세션 쿠키 | 토큰의 주인(`token:{UUID}` → userId)과 세션의 주인이 같아야 통과. 토큰 URL만 넘겨받아서는 들어갈 수 없음 |
+
+- 세션 ID는 `SecureRandom` 32바이트(Base64URL)이고 Redis에 `queue:session:{id}` → userId로 저장됩니다(TTL 2시간, 조회할 때마다 연장).
+- 입장 허용은 스케줄러가 대기열 상위 5명을 꺼내면서 **같은 Lua 스크립트 안에서** 토큰을 발급합니다(`ZPOPMIN` + `SET PX`). 허용 상태(`queue:ticket:allow:{userId}`)와 토큰(`token:{UUID}`) 모두 TTL 5분이라 따로 정리할 필요가 없고, 순번을 여러 번 조회해도 같은 토큰을 돌려줍니다.
+- 등록 · 상태 조회 · 이탈도 각각 Lua 스크립트 하나로 처리해 명령 사이에 다른 요청이 끼어든 중간 상태가 생기지 않습니다. (스크립트 안에서 키 접두사를 조합하므로 단일 Redis 기준입니다.)
 ## ▶️ 실행 방법
 
 Redis 접속 정보는 환경변수로 넣습니다. 값이 없으면 로컬 Redis(`localhost:6379`)에 붙습니다.
@@ -83,6 +98,15 @@ Redis 접속 정보는 환경변수로 넣습니다. 값이 없으면 로컬 Red
 REDIS_HOST=<host>.upstash.io REDIS_PASSWORD=<password> REDIS_SSL=true ./gradlew bootRun
 ```
 
+### 테스트
+
+```bash
+# Redis(localhost:6379)가 떠 있어야 한다. 통합 테스트는 DB 15를 쓰고 매번 비운다
+./gradlew test
+```
+
+GitHub Actions(`.github/workflows/ci.yml`)가 Redis 서비스 컨테이너를 띄워 PR · push마다 빌드와 테스트를 실행합니다.
+
 ## 📈 운영 · 관측성
 
 Spring Boot Actuator + Micrometer(Prometheus)로 지표를 내보냅니다. 외부에는 `health`, `prometheus` 엔드포인트만 열어 둡니다.
@@ -99,7 +123,7 @@ Spring Boot Actuator + Micrometer(Prometheus)로 지표를 내보냅니다. 외�
 | `lineup_queue_waiting` | gauge | 대기 인원. 5초마다 `ZCARD`로 측정한 값을 보여줌 (게이지 안에서 Redis를 조회하지 않음) |
 | `lineup_queue_admitted_total` | counter | 입장 허용된 사용자 수 (스케줄러가 꺼낸 인원) |
 | `lineup_scheduler_last_success_timestamp_seconds` | gauge | 입장 스케줄러가 마지막으로 오류 없이 끝난 시각 (epoch 초) |
-| `lineup_entry_rejected_total{reason,status}` | counter | 진입 토큰 거절 수. `reason="missing",status="401"`(토큰 없음), `reason="invalid",status="403"`(만료·위조) |
+| `lineup_entry_rejected_total{reason,status}` | counter | 진입 토큰 거절 수. `reason="missing",status="401"`(토큰 없음), `reason="invalid",status="403"`(만료·위조·다른 사용자의 토큰·세션 없음) |
 | `http_server_requests_seconds_bucket{uri,...}` | histogram | 엔드포인트별 응답 시간 (p95 계산용 버킷 포함) |
 | `lettuce_seconds_bucket{db_operation,error,...}` | histogram | Redis 명령별 지연. Boot가 Lettuce에 Micrometer Observation을 자동으로 붙여 만들어 줌 |
 
@@ -149,7 +173,13 @@ docker run --rm -v "$PWD/monitoring":/w --entrypoint promtool prom/prometheus ch
     - 요청 실패율 (`http_req_failed`): 1.0% 미만
     - 95% 응답 시간 (`http_req_duration p(95)`): 200ms 미만
 
-### 2) 부하 테스트 결과 요약
+### 2) 측정 범위와 한계 (결과를 읽기 전에)
+- **측정한 것은 Redis 명령 몇 개짜리 API뿐입니다.** 등록(`ZADD`)과 순번 조회(당시 `SISMEMBER` + `ZRANK`)만 반복했고, 스케줄러는 3초마다 5명씩만 입장시키므로 대부분의 요청은 `WAITING` 응답이었습니다. 입장 토큰 발급, `ticket.html` 진입 검증, 실제 예매 · 결제처럼 무거운 경로는 측정하지 않았습니다.
+- **측정 환경이 기록되어 있지 않습니다.** 하드웨어, 앱 · Redis · k6가 같은 머신에서 돌았는지(네트워크 왕복 없음) 등이 남아 있지 않아 다른 환경과 수치를 직접 비교할 수 없습니다.
+- **Spring MVC와 비교 실험은 하지 않았습니다.** 따라서 이 결과만으로 "WebFlux가 MVC보다 빠르다/스레드를 덜 쓴다"고 말할 근거는 없습니다. 이 부하 수준(초당 약 2,500건, 요청당 Redis 1~2회)은 MVC로도 충분히 처리 가능한 범위일 수 있습니다.
+- 아래 수치는 **대기열 세션 · Lua 스크립트 도입 전 코드**로 측정한 값입니다. 현재 `load-test.js`는 세션 헤더를 쓰도록 바뀌었고, 등록 한 번에 실행되는 Redis 작업도 늘었으므로 다시 측정하기 전까지는 참고용으로만 봐 주세요.
+
+### 3) 부하 테스트 결과 요약 (세션 도입 전 측정)
 
 | 최고 인원 | 총 요청 수 | 초당 요청 | 평균 응답 | 95% 응답 | 최대 응답 | 실패율 | 달성 여부 |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | :---: |
@@ -161,7 +191,7 @@ docker run --rm -v "$PWD/monitoring":/w --entrypoint promtool prom/prometheus ch
 #### 성능 평가 및 분석
 * **안정성**: 가상 사용자 5,000명이 몰린 실행에서도 총 121,420건의 요청을 **실패 0건**으로 처리했습니다.
 * **응답 속도**: 인원을 300명에서 5,000명으로 약 17배 늘리는 동안 95% 응답 시간은 모두 **4ms 이내**로, 목표(200ms 미만)를 크게 밑돌았습니다.
-* **처리량**: 초당 요청이 인원에 비례해 늘어(5,000명에서 초당 약 2,454건), 이 범위에서는 처리 한계에 닿지 않았습니다.
+* **처리량**: 초당 요청이 인원에 비례해 늘어(5,000명에서 초당 약 2,454건), 이 범위에서는 처리 한계에 닿지 않았습니다. 다만 한계를 찾는 테스트(응답 시간이 목표를 넘을 때까지 부하를 올리는 테스트)는 아니었습니다.
 
 <details>
 <summary>
