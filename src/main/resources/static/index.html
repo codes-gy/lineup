@@ -79,12 +79,13 @@
     const BATCH_INTERVAL_SEC = 3;
     const RING_LENGTH = 2 * Math.PI * 108;
 
-    const userId = "user_" + Math.floor(Math.random() * 10000);
+    // userId는 서버가 만들고, 본인 확인용 대기열 세션은 HttpOnly 쿠키로 받는다
+    // (새로고침해도 같은 세션이면 순번이 유지된다)
     let timer = null;
     let initialRank = null;
 
     // 1. 진입 시 바로 등록
-    fetch(`/api/register?userId=${userId}`, { method: 'POST' })
+    fetch('/api/register', { method: 'POST' })
         .then(res => res.json())
         .then(data => {
             document.getElementById('registered-at').innerText = formatClock(new Date());
@@ -94,8 +95,14 @@
         });
 
     function checkStatus() {
-        fetch(`/api/status?userId=${userId}`)
-            .then(res => res.json())
+        fetch('/api/status')
+            .then(res => {
+                if (res.status === 401) {
+                    // 세션이 만료되었거나 다른 탭에서 이탈한 경우
+                    return { status: 'NOT_FOUND' };
+                }
+                return res.json();
+            })
             .then(handle);
     }
 
@@ -165,7 +172,7 @@
     }
 
     function leave() {
-        fetch(`/api/leave?userId=${userId}`, { method: 'POST' })
+        fetch('/api/leave', { method: 'POST' })
             .then(() => {
                 clearInterval(timer);
                 show('cancelled');
