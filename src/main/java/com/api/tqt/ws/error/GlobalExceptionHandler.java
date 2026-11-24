@@ -25,6 +25,11 @@ public class GlobalExceptionHandler  {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("error", "요청하신 리소스를 찾을 수 없습니다."));
         }
+        if (e.getStatusCode().is4xxClientError()) {
+            // 400 · 401 · 409 등 클라이언트 오류는 500으로 바꾸지 않고 그대로 돌려준다
+            String reason = (e.getReason() != null) ? e.getReason() : e.getStatusCode().toString();
+            return ResponseEntity.status(e.getStatusCode()).body(Map.of("error", reason));
+        }
         return handleException(e, exchange);
     }
 
@@ -43,8 +48,10 @@ public class GlobalExceptionHandler  {
 
     private boolean isHtmlRequest(ServerWebExchange exchange) {
         List<MediaType> acceptHeaders = exchange.getRequest().getHeaders().getAccept();
+        // */*(fetch · curl 기본값)까지 HTML로 보면 API 오류가 에러 페이지 리다이렉트로 바뀌므로,
+        // text/html을 명시한 요청(브라우저 페이지 이동)만 HTML 요청으로 본다
         return acceptHeaders.stream()
-                .anyMatch(mediaType -> mediaType.isCompatibleWith(MediaType.TEXT_HTML));
+                .anyMatch(mediaType -> !mediaType.isWildcardType() && mediaType.isCompatibleWith(MediaType.TEXT_HTML));
     }
 
     private ResponseEntity<Void> redirect(String location) {
@@ -52,4 +59,4 @@ public class GlobalExceptionHandler  {
                 .location(URI.create(location))
                 .build();
     }
-}
+}

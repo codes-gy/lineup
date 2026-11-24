@@ -23,19 +23,20 @@ export default function () {
     // 유저마다 고유한 ID 생성 (예: user_1_1, user_2_1 ...)
     const userId = `user_${__VU}_${__ITER}`;
 
-    // 1. 대기열 등록 (POST)
+    // 1. 대기열 등록 (POST) - 응답 헤더로 본인 확인용 대기열 세션을 받는다
     const regRes = http.post(`${BASE_URL}/register?userId=${userId}`);
     check(regRes, {
         '등록 성공 (HTTP 200)': (r) => r.status === 200,
     });
+    const session = regRes.headers['X-Queue-Session'];
 
     sleep(1); // 1초 대기
 
     // 2. 대기 순번 조회 (GET)
-    const statusRes = http.get(`${BASE_URL}/status?userId=${userId}`);
+    const statusRes = http.get(`${BASE_URL}/status`, { headers: { 'X-Queue-Session': session } });
     check(statusRes, {
         '순번 조회 성공 (HTTP 200)': (r) => r.status === 200,
     });
 
     sleep(1);
-}
+}

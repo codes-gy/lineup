@@ -1,6 +1,8 @@
 package com.api.tqt.ws.config;
 
+import com.api.tqt.ws.controller.QueueController;
 import com.api.tqt.ws.metrics.QueueMetrics;
+import com.api.tqt.ws.service.QueueService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
@@ -21,6 +23,7 @@ import java.net.URI;
 public class ValidationFilter implements WebFilter {
 
     private final ReactiveRedisTemplate<String, String> redisTemplate;
+    private final QueueService queueService;
     private final QueueMetrics queueMetrics;
 
     @Override
@@ -37,15 +40,21 @@ public class ValidationFilter implements WebFilter {
                 return redirectToErrorPage(exchange, "/error/401.html");
             }
 
-            return redisTemplate.hasKey("token:" + token)
-                    .flatMap(hasKey -> {
-                        if (hasKey) {
+            // 토큰이 가리키는 userId와, 요청한 브라우저의 대기열 세션이 가리키는 userId가 같아야 통과시킨다
+            // (토큰 URL만 다른 사람에게 넘겨서는 들어갈 수 없다)
+            Mono<String> tokenOwner = redisTemplate.opsForValue().get(QueueService.TOKEN_KEY_PREFIX + token);
+            Mono<String> sessionOwner = queueService.resolveSession(QueueController.sessionOf(request));
+
+            return Mono.zip(tokenOwner, sessionOwner)
+                    .map(owners -> owners.getT1().equals(owners.getT2()))
+                    .defaultIfEmpty(false)
+                    .flatMap(valid -> {
+                        if (valid) {
                             return chain.filter(exchange); // 정상 진입 허용
-                        } else {
-                            queueMetrics.recordInvalidToken();
-                            log.debug("[진입 검증] 만료되었거나 유효하지 않은 토큰 → 403");
-                            return redirectToErrorPage(exchange, "/error/403.html");
                         }
+                        queueMetrics.recordInvalidToken();
+                        log.debug("[진입 검증] 만료 · 위조되었거나 본인 세션의 토큰이 아님 → 403");
+                        return redirectToErrorPage(exchange, "/error/403.html");
                     });
         }
 
@@ -58,4 +67,4 @@ public class ValidationFilter implements WebFilter {
         response.getHeaders().setLocation(URI.create(location));
         return response.setComplete();
     }
-}
+}
