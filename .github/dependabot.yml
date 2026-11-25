@@ -1,0 +1,20 @@
+# Dependabot 버전 업데이트 설정
+# 매주 월요일(Asia/Seoul)에 확인하고, minor/patch 업데이트는 생태계·디렉터리별로 PR 하나로 묶습니다.
+# 문서: https://docs.github.com/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+version: 2
+updates:
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Seoul"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      gradle-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
